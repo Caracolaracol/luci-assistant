@@ -1,0 +1,71 @@
+# Configuración de Luci — prototipo Fase 1
+# Los cambios se aplican al reiniciar el asistente.
+
+[audio]
+# Parte del nombre del dispositivo de audio (entrada y salida).
+dispositivo = "Scarlett"
+# Entrada de la Scarlett donde está conectado el micrófono (1 o 2).
+canal_microfono = 1
+
+[vad]
+# Detector de voz (Silero): probabilidad mínima para considerar que alguien habla (0–1).
+# Más bajo = detecta voces más suaves, pero también más ruidos.
+umbral = 0.5
+# Silencio (ms) que marca el fin de una frase. Menos = responde antes, pero puede
+# cortarte si haces pausas largas al hablar.
+silencio_fin_ms = 500
+# Empieza a transcribir en cuanto haces una pausa, sin esperar a confirmar el final.
+anticipar = true
+# Duración máxima de una frase (segundos).
+max_frase_s = 20
+
+[sesion]
+# Segundos, tras cada respuesta, en que puedes seguir hablándole sin decir «Luci».
+ventana_s = 6
+
+[filtro]
+# Descarta ruidos antes de transcribirlos.
+# Voz mínima (ms) para considerar una frase.
+min_voz_ms = 250
+# Proporción mínima del audio que debe ser voz (0–1).
+min_proporcion_voz = 0.3
+# Volumen medio mínimo de la voz (RMS). `uv run luci probar-oido` muestra el de tu voz.
+volumen_min = 80
+
+[stt]
+# "mlx-community/whisper-small-mlx": rápido (~0,25 s). Si te entiende mal, usa
+# "mlx-community/whisper-large-v3-turbo": más preciso, pero ~0,9 s.
+modelo = "mlx-community/whisper-small-mlx"
+idioma = "es"
+# Contexto para Whisper: mejora el reconocimiento del nombre «Luci».
+pista = "Conversación en español con Luci, una asistente de voz."
+
+[llm]
+base_url = "https://opencode.ai/inference/go/openai/v1"
+# Candidatos: "deepseek-v4.1-flash", "mimo-v2.6-flash", "deepseek-v4-pro", "mimo-v2.6-pro"
+modelo = "deepseek-v4.1-flash"
+# Modelos que se alternan con la tecla t en la interfaz.
+candidatos = ["deepseek-v4.1-flash", "mimo-v2.6-flash", "deepseek-v4-pro", "mimo-v2.6-pro"]
+max_tokens = 400
+# Razonamiento previo del modelo: "none" (más rápido, recomendado para voz), "minimal", "low"…
+razonamiento = "none"
+# Turnos de conversación (pregunta + respuesta) que se recuerdan dentro de una sesión.
+memoria_turnos = 10
+
+[tts]
+# "piper" (local, neural) o "say" (voces de macOS).
+motor = "piper"
+voz_piper = "models/piper/es_MX-claude-high.onnx"
+# Mayor que 1.0 = habla más lento.
+lentitud_piper = 1.0
+voz_say = "Paulina"
+
+[interrupcion]
+# Permite interrumpir a Luci hablando mientras responde.
+activa = true
+# Voz continua (ms) necesaria para considerar que el usuario interrumpe.
+min_voz_ms = 300
+# Volumen mínimo (RMS, 0–32767) de la voz para interrumpir mientras Luci habla.
+# Con parlantes, súbelo para que Luci no se interrumpa a sí mismo
+# (usa `uv run luci calibrar` para estimarlo). Con audífonos puede ser bajo.
+umbral_rms = 1500

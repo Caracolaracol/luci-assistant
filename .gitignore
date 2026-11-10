@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+models/
+*.log
+# Documento de planificación (local, no se publica)
+Plan_asistente_escarabajo_steampunk.docx
