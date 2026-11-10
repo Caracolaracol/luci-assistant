@@ -57,6 +57,7 @@ class Motor:
         self._emitir = emitir
         self.estado = CARGANDO
         self.fin_ventana = 0.0          # hora en que se cierra la ventana de conversación
+        self._ultima_respuesta = 0.0    # para olvidar la conversación tras un rato
         self._activo = False
         self._ultimo_dicho = ""         # para reconocer el eco de su propia voz
 
@@ -296,6 +297,13 @@ class Motor:
         resultado = {"silencio": False, "dicho": []}
         self.estado = PENSANDO
 
+        # Tras un rato sin hablarle, empieza de cero (no arrastra contexto de horas atrás).
+        olvido_s = self.cfg["llm"].get("olvidar_tras_min", 30) * 60
+        if self.cerebro.historial and time.time() - self._ultima_respuesta > olvido_s:
+            self.cerebro.olvidar()
+            self._ev("debug", f"Memoria de la conversación borrada tras "
+                              f"{self.cfg['llm'].get('olvidar_tras_min', 30)} min sin hablarme.")
+
         def producir():
             fr = Fraseador()
             prefijo, decidido = "", False
@@ -313,8 +321,9 @@ class Motor:
                     resultado["dicho"].append(f)
                     self._ev("luci", f)
 
+            flujo = self.cerebro.responder(texto, cancelar)
             try:
-                for delta in self.cerebro.responder(texto, cancelar):
+                for delta in flujo:
                     tiempos.setdefault("token", time.time() - t_fin_habla)
                     if not decidido:
                         # ¿Empieza con [SILENCIO]? Se espera a tener suficiente texto.
@@ -325,6 +334,10 @@ class Motor:
                         # [SILENCIO] o cualquier otra nota entre corchetes: no es para decir en voz alta
                         if p.startswith("["):
                             resultado["silencio"] = True
+                            # No era para Luci: se quita del historial para no reenviarlo
+                            # en las preguntas siguientes.
+                            flujo.close()
+                            self.cerebro.descartar_ultimo_turno()
                             return
                         decidido, delta = True, p
                     enviar(fr.agregar(delta))
@@ -388,5 +401,6 @@ class Motor:
             # no se extiende la ventana si no le hablaban
             self.estado = CONVERSANDO if time.time() < self.fin_ventana else ESPERA
         else:
+            self._ultima_respuesta = time.time()
             self._abrir_ventana()
         return None

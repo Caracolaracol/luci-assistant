@@ -40,7 +40,7 @@ ventana_s = 6
 min_voz_ms = 250
 # Proporción mínima del audio que debe ser voz (0–1).
 min_proporcion_voz = 0.3
-# Volumen medio mínimo de la voz (RMS). `uv run luci probar-oido` muestra el de tu voz.
+# Volumen medio mínimo de la voz (RMS). `luci probar-oido` muestra el de tu voz.
 volumen_min = 80
 
 [stt]
@@ -62,6 +62,8 @@ max_tokens = 400
 razonamiento = "none"
 # Turnos de conversación (pregunta + respuesta) que se recuerdan dentro de una sesión.
 memoria_turnos = 10
+# Minutos sin hablarle tras los que olvida la conversación y empieza de cero.
+olvidar_tras_min = 30
 
 [tts]
 # "piper" (local, neural) o "say" (voces de macOS).
@@ -78,7 +80,7 @@ activa = true
 min_voz_ms = 300
 # Volumen mínimo (RMS, 0–32767) de la voz para interrumpir mientras Luci habla.
 # Con parlantes, súbelo para que Luci no se interrumpa a sí mismo
-# (usa `uv run luci calibrar` para estimarlo). Con audífonos puede ser bajo.
+# (usa `luci calibrar` para estimarlo). Con audífonos puede ser bajo.
 umbral_rms = 1500
 
 [registro]

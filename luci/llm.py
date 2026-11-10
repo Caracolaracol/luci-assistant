@@ -52,6 +52,13 @@ class Cerebro:
     def olvidar(self):
         self.historial.clear()
 
+    def descartar_ultimo_turno(self):
+        """Quita la última pregunta (y su respuesta, si la hay) del historial."""
+        if self.historial and self.historial[-1]["role"] == "assistant":
+            self.historial.pop()
+        if self.historial and self.historial[-1]["role"] == "user":
+            self.historial.pop()
+
     def responder(self, texto: str, cancelar: threading.Event) -> Iterator[str]:
         """Genera la respuesta por fragmentos. Si `cancelar` se activa, corta el
         flujo y guarda en el historial solo lo que alcanzó a decirse."""
