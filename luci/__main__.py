@@ -16,6 +16,7 @@ Uso:  luci [comando]
   probar-oido        graba una frase y la transcribe
   probar-cerebro [p] pregunta por texto al modelo y mide la latencia
   calibrar           sugiere el umbral de interrupción para tus parlantes
+  probar-turno       mide con tu voz si Smart Turn detecta bien cuándo terminas
 """
 
 from __future__ import annotations
@@ -159,6 +160,62 @@ def cmd_calibrar(args):
               "cancelación de eco.")
 
 
+def cmd_probar_turno(args):
+    """Mide Smart Turn con tu voz: en cada pausa, ¿cree que terminaste?"""
+    from .audio import FRAME, Microfono
+    from .turno import DetectorTurno
+    from .vad import DetectorVoz, escuchar_frase
+
+    cfg = _cfg(args)
+    v = cfg["vad"]
+    pausa = max(1, v.get("pausa_turno_ms", 200) // 32)
+    umbral = v.get("umbral_turno", 0.5)
+    print("Cargando…")
+    turno = DetectorTurno()
+    mic = Microfono(cfg["audio"]["dispositivo"], cfg["audio"].get("canal_microfono", 1))
+    vad = DetectorVoz(v.get("umbral", 0.5))
+    mic.iniciar()
+    print("\nHabla como lo harías con Luci. Di frases completas y también frases con pausas para")
+    print("pensar a mitad (p. ej. «Luci, quería preguntarte… sobre el clima de mañana»).")
+    print("Deja ~2 s de silencio entre frases. Ctrl+C para terminar.\n")
+    aciertos = total = 0
+    try:
+        while True:
+            frase = escuchar_frase(mic, vad, espera_s=None, silencio_fin_ms=1500, max_frase_s=20)
+            if frase is None:
+                continue
+            audio = frase.audio
+            cuadros = [audio[k * FRAME:(k + 1) * FRAME] for k in range(len(audio) // FRAME)]
+            marcas_vad = DetectorVoz(v.get("umbral", 0.5))
+            voz = [marcas_vad.es_voz(c) for c in cuadros]
+            ultimo = max((i for i, x in enumerate(voz) if x), default=0)
+            # pausas internas: silencio de `pausa` cuadros seguido de más voz
+            internas, silencio = [], 0
+            for i, x in enumerate(voz[:ultimo + 1]):
+                silencio = 0 if x else silencio + 1
+                if silencio == pausa:
+                    internas.append(i)
+            print(f"Frase de {len(audio) / 16000:.1f} s")
+            for i in internas:
+                p = turno.probabilidad_fin(audio[:(i + 1) * FRAME])
+                ok = p < umbral
+                aciertos += ok; total += 1
+                print(f"   pausa a mitad ({(i + 1) * 0.032:.1f} s): p={p:.2f}  "
+                      f"{'✔ seguiría esperando' if ok else '✘ te habría cortado'}")
+            fin = min(len(audio), (ultimo + 1 + pausa) * FRAME)
+            p = turno.probabilidad_fin(audio[:fin])
+            ok = p >= umbral
+            aciertos += ok; total += 1
+            print(f"   al terminar:                p={p:.2f}  "
+                  f"{'✔ respondería ya' if ok else '✘ esperaría de más'}\n")
+    except KeyboardInterrupt:
+        pass
+    finally:
+        mic.detener()
+    if total:
+        print(f"\nAciertos: {aciertos}/{total} con umbral {umbral}.")
+
+
 def cmd_conversar(args):
     from .cliente import servicio_activo
     from .config import PLIST
@@ -201,7 +258,7 @@ def _servicio(nombre):
 def cmd_consola(args):
     from .motor import Motor
 
-    iconos = {"usuario": "🗣️  Tú:", "luci": "🪲 Luci:", "info": "ℹ️ ", "debug": "  ·", "error": "❌"}
+    iconos = {"usuario": "🗣️  Tú:", "luci": "🪲 Luci:", "info": "ℹ️ ", "debug": "  ·", "oido": "  ·", "error": "❌"}
     m = Motor(_cfg(args), lambda ev: print(f"[{time.strftime('%H:%M:%S')}] {iconos[ev.tipo]} {ev.texto}",
                                          flush=True))
     try:
@@ -228,12 +285,13 @@ def main():
     c = sub.add_parser("probar-cerebro")
     c.add_argument("pregunta", nargs="?", default="¿Por qué el cielo es azul?")
     sub.add_parser("calibrar")
+    sub.add_parser("probar-turno")
     args = p.parse_args()
     comandos = {
         None: cmd_conversar, "conversar": cmd_conversar, "servicio": cmd_servicio,
         "consola": cmd_consola, "dispositivos": cmd_dispositivos,
         "probar-voz": cmd_probar_voz, "probar-oido": cmd_probar_oido,
-        "probar-cerebro": cmd_probar_cerebro, "calibrar": cmd_calibrar,
+        "probar-cerebro": cmd_probar_cerebro, "calibrar": cmd_calibrar, "probar-turno": cmd_probar_turno,
     }
     for nombre in ("configurar", "actualizar", "desinstalar", "iniciar", "detener", "reiniciar", "estado", "registro"):
         comandos[nombre] = _servicio(nombre)

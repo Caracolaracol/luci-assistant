@@ -33,6 +33,8 @@ MODELOS = {
         "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/claude/high/es_MX-claude-high.onnx.json",
     "models/silero/silero_vad.onnx":
         "https://raw.githubusercontent.com/snakers4/silero-vad/master/src/silero_vad/data/silero_vad.onnx",
+    "models/smart-turn/smart-turn-v3.2-cpu.onnx":
+        "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.2-cpu.onnx",
 }
 
 

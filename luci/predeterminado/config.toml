@@ -16,6 +16,17 @@ umbral = 0.5
 silencio_fin_ms = 500
 # Empieza a transcribir en cuanto haces una pausa, sin esperar a confirmar el final.
 anticipar = true
+# Cómo decide que terminaste de hablar:
+#   "silencio"   tras `silencio_fin_ms` de silencio (por defecto).
+#   "smart_turn" tras una pausa breve, un modelo estima por la entonación si la frase
+#                terminó: responde antes y no te corta si haces pausas para pensar.
+#                Pruébalo con tu voz: `luci probar-turno`.
+fin_turno = "silencio"
+# Con smart_turn: pausa tras la que se consulta el modelo, silencio máximo de espera
+# si cree que no terminaste, y probabilidad mínima para dar la frase por terminada.
+pausa_turno_ms = 200
+silencio_max_ms = 1500
+umbral_turno = 0.5
 # Duración máxima de una frase (segundos).
 max_frase_s = 20
 
@@ -69,3 +80,9 @@ min_voz_ms = 300
 # Con parlantes, súbelo para que Luci no se interrumpa a sí mismo
 # (usa `uv run luci calibrar` para estimarlo). Con audífonos puede ser bajo.
 umbral_rms = 1500
+
+[registro]
+# Guardar en el registro (~/Library/Logs/Luci/luci.log) el texto de lo que se dice
+# cerca de Luci. Desactivado por privacidad: el registro solo anota eventos y tiempos.
+# La interfaz muestra lo que ignoró (tecla d) sin guardarlo en disco.
+conversaciones = false

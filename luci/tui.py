@@ -122,7 +122,7 @@ class LuciApp(App):
             chat.write(f"[bold red]✖ {t}[/]")
         elif tipo == "info":
             chat.write(f"[italic grey62]{t}[/]")
-        elif tipo == "debug":
+        elif tipo in ("debug", "oido"):
             if not self.detalles:
                 return
             chat.write(f"[grey46]  · {t}[/]")

@@ -49,7 +49,11 @@ class Servidor:
 
     def _al_evento(self, ev: Evento):
         msg = {"t": "evento", "tipo": ev.tipo, "texto": ev.texto, "hora": time.strftime("%H:%M:%S")}
-        print(f"[{msg['hora']}] {ev.tipo}: {ev.texto}", flush=True)   # va al registro
+        # El registro en disco no guarda lo hablado salvo que se active en config.toml.
+        texto = ev.texto
+        if ev.tipo in ("usuario", "luci", "oido") and not self.cfg.get("registro", {}).get("conversaciones", False):
+            texto = f"({len(ev.texto.split())} palabras)"
+        print(f"[{msg['hora']}] {ev.tipo}: {texto}", flush=True)
         with self._lock:
             self._historial.append(msg)
         self._difundir(msg)

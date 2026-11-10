@@ -43,7 +43,7 @@ _SILENCIO = "[SILENCIO]"
 
 @dataclass
 class Evento:
-    tipo: str        # "usuario" | "luci" | "info" | "debug" | "error"
+    tipo: str        # "usuario" | "luci" | "oido" (lo que ignoró) | "info" | "debug" | "error"
     texto: str
 
 
@@ -78,6 +78,11 @@ class Motor:
         self.mic = Microfono(a["dispositivo"], a.get("canal_microfono", 1))
         self.salida = Reproductor(a["dispositivo"])
         self.vad = DetectorVoz(self.cfg["vad"].get("umbral", 0.5))
+        self.turno = None
+        if self.cfg["vad"].get("fin_turno", "silencio") == "smart_turn":
+            from .turno import DetectorTurno
+
+            self.turno = DetectorTurno()
         self._ev("info", "Cargando voz…")
         self.voz = crear_voz(self.cfg["tts"], ruta_datos)
         self._ev("info", f"Cargando Whisper ({self.cfg['stt']['modelo'].split('/')[-1]})…")
@@ -156,6 +161,10 @@ class Motor:
                     max_frase_s=v["max_frase_s"], inicio=inicio,
                     anticipar=self._anticipar if v.get("anticipar", True) else None,
                     parar=self._debe_parar,
+                    fin_turno=self.turno.probabilidad_fin if self.turno else None,
+                    pausa_turno_ms=v.get("pausa_turno_ms", 200),
+                    silencio_max_ms=v.get("silencio_max_ms", 1500),
+                    umbral_turno=v.get("umbral_turno", 0.5),
                 )
                 inicio = None
                 if frase is None or self.mic.silenciado:
@@ -209,7 +218,9 @@ class Motor:
         return len(oido) >= 3 and len(oido & dicho) / len(oido) > 0.7
 
     def _procesar(self, frase: Frase) -> list[np.ndarray] | None:
-        t_fin = time.time() - self.cfg["vad"]["silencio_fin_ms"] / 1000
+        t_fin = time.time() - frase.silencio_ms / 1000      # fin real de la voz
+        if frase.p_fin is not None:
+            self._ev("debug", f"Fin de turno: p={frase.p_fin:.2f}, tras {frase.silencio_ms} ms de silencio")
         motivo = self._descartar(frase)
         if motivo:
             if frase.transcripcion:
@@ -222,14 +233,14 @@ class Motor:
             self._ev("debug", "Ignorado: Whisper no reconoció palabras")
             return None
         if self._es_eco(texto):
-            self._ev("debug", f"Ignorado (eco de mi voz): {texto}")
+            self._ev("oido", f"Ignorado (eco de mi voz): {texto}")
             return None
 
         nombrado = bool(_NOMBRE.search(texto))
         en_ventana = self.estado == CONVERSANDO
 
         if not nombrado and not en_ventana:
-            self._ev("debug", f"Oído en espera (no me llamaron): {texto}")
+            self._ev("oido", f"No me llamaron: {texto}")
             return None
 
         self._ev("usuario", texto)

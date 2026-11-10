@@ -55,6 +55,8 @@ class Frase:
     cuadros_voz: int                 # cuadros de 30 ms clasificados como voz
     volumen_voz: float               # RMS medio de los cuadros con voz
     transcripcion: Future | None = field(default=None)   # transcripción anticipada
+    silencio_ms: int = 0                                  # silencio esperado antes de cerrar
+    p_fin: float | None = None                            # última estimación de Smart Turn
 
     @property
     def duracion_voz_ms(self) -> int:
@@ -78,6 +80,10 @@ def escuchar_frase(
     anticipar: Callable[[np.ndarray], Future] | None = None,
     anticipar_ms: int = 150,
     parar: Callable[[], bool] | None = None,
+    fin_turno: Callable[[np.ndarray], float] | None = None,
+    pausa_turno_ms: int = 200,
+    silencio_max_ms: int = 1500,
+    umbral_turno: float = 0.5,
 ) -> Frase | None:
     """Espera a que el usuario hable y devuelve la frase completa (int16, 16 kHz).
 
@@ -88,6 +94,10 @@ def escuchar_frase(
 
     - `parar`, si se indica, se consulta mientras nadie habla; si devuelve True,
       la escucha termina sin frase.
+    - `fin_turno` (Smart Turn), si se indica, cambia la regla de cierre: tras una pausa
+      de `pausa_turno_ms` se estima si la frase terminó; si la probabilidad supera
+      `umbral_turno` se cierra enseguida, si no se espera a que siga hablando o a un
+      silencio de `silencio_max_ms`. Sin `fin_turno`, cierra tras `silencio_fin_ms`.
 
     Devuelve None si nadie habla durante `espera_s` segundos (None = sin límite).
     """
@@ -100,7 +110,9 @@ def escuchar_frase(
     silencio = 0
     esperados = int(espera_s * 1000 / FRAME_MS) if espera_s else None
     max_cuadros = int(max_frase_s * 1000 / FRAME_MS)
-    fin = max(1, silencio_fin_ms // FRAME_MS)
+    fin = max(1, (silencio_max_ms if fin_turno else silencio_fin_ms) // FRAME_MS)
+    pausa_turno = max(1, pausa_turno_ms // FRAME_MS)
+    p_fin: float | None = None
     pausa_anticipo = max(1, anticipar_ms // FRAME_MS)
     cuadros_sin_voz = 0
     futuro: Future | None = None
@@ -113,7 +125,8 @@ def escuchar_frase(
         valido = futuro if futuro is not None and largo_anticipado >= corte else None
         if futuro is not None and valido is None:
             futuro.cancel()
-        return Frase(audio, cuadros_voz, suma_rms / max(1, cuadros_voz), valido)
+        return Frase(audio, cuadros_voz, suma_rms / max(1, cuadros_voz), valido,
+                     silencio_ms=silencio * FRAME_MS, p_fin=p_fin)
 
     while True:
         if not hablando and parar is not None and parar():
@@ -150,5 +163,9 @@ def escuchar_frase(
             if anticipar and futuro is None and silencio == pausa_anticipo:
                 largo_anticipado = len(frase)
                 futuro = anticipar(np.concatenate(frase))
+            if fin_turno and silencio == pausa_turno:
+                p_fin = fin_turno(np.concatenate(frase))
+                if p_fin >= umbral_turno:
+                    return cerrar()
         if silencio >= fin or len(frase) >= max_cuadros:
             return cerrar()
