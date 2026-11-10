@@ -92,3 +92,33 @@ def servicio_activo() -> bool:
         return False
     finally:
         s.close()
+
+
+def consultar(cmd: str | None = None, timeout: float = 2.0) -> dict | None:
+    """Conexión breve: devuelve el estado actual del servicio y, opcionalmente, envía un
+    comando. None si el servicio no responde. Pensado para scripts (SketchyBar, etc.)."""
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect(str(SOCKET))
+        estado, buffer = None, b""
+        while estado is None:
+            datos = s.recv(65536)
+            if not datos:
+                return None
+            buffer += datos
+            while b"\n" in buffer and estado is None:
+                linea, buffer = buffer.split(b"\n", 1)
+                try:
+                    msg = json.loads(linea)
+                except json.JSONDecodeError:
+                    continue
+                if msg.get("t") == "estado":
+                    estado = msg
+        if cmd:
+            s.sendall((json.dumps({"cmd": cmd}) + "\n").encode())
+        return estado
+    except OSError:
+        return None
+    finally:
+        s.close()

@@ -88,3 +88,9 @@ umbral_rms = 1500
 # cerca de Luci. Desactivado por privacidad: el registro solo anota eventos y tiempos.
 # La interfaz muestra lo que ignoró (tecla d) sin guardarlo en disco.
 conversaciones = false
+
+[integraciones]
+# Avisa a SketchyBar de cada cambio de estado (evento `luci_estado`), si está instalado.
+sketchybar = true
+# Ícono de Luci en la barra de menú de macOS.
+icono_menu = true

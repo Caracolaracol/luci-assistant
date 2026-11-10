@@ -8,6 +8,8 @@ Uso:  luci [comando]
   desinstalar        quita Luci.app y el inicio automático
   iniciar | detener | reiniciar | estado
   registro [-f]      muestra el registro del servicio (-f: seguirlo en vivo)
+  silenciar [si|no]  silencia o reactiva el micrófono (sin valor: alterna)
+  estado --breve     estado en una palabra (para scripts y barras de menú)
 
   servicio           ejecuta el servicio en primer plano (lo usa Luci.app)
   consola            motor completo en esta terminal, con texto simple (para depurar)
@@ -244,6 +246,41 @@ def cmd_servicio(args):
     ejecutar_servicio()
 
 
+def cmd_silenciar(args):
+    """Silencia o reactiva el micrófono (sin argumento: alterna)."""
+    from .cliente import consultar
+    from .estados import SILENCIADO
+
+    estado = consultar()
+    if estado is None:
+        raise SystemExit("Luci no está corriendo.")
+    if estado.get("estado") in ("cargando", "error"):
+        raise SystemExit(f"Luci está {estado['estado'] == 'cargando' and 'cargando' or 'con un error'}; "
+                         "inténtalo en unos segundos.")
+    silenciada = estado.get("estado") == SILENCIADO
+    quiero = {"si": True, "sí": True, "no": False}.get(args.valor or "", not silenciada)
+    if quiero != silenciada:
+        consultar("silenciar")
+        time.sleep(0.3)
+        nuevo = consultar()
+        silenciada = bool(nuevo) and nuevo.get("estado") == SILENCIADO
+    print("silenciada" if silenciada else "escuchando")
+
+
+def cmd_estado(args):
+    if args.breve:
+        # Una palabra, para scripts: espera, conversando, pensando, hablando,
+        # silenciado, cargando, error o apagada.
+        from .cliente import consultar
+
+        estado = consultar()
+        print(estado.get("estado", "apagada") if estado else "apagada")
+        return
+    from . import servicio
+
+    servicio.estado()
+
+
 def _servicio(nombre):
     def cmd(args):
         from . import servicio
@@ -274,8 +311,12 @@ def main():
     sub.add_parser("conversar")
     sub.add_parser("servicio")
     sub.add_parser("consola")
-    for nombre in ("configurar", "actualizar", "desinstalar", "iniciar", "detener", "reiniciar", "estado"):
+    for nombre in ("configurar", "actualizar", "desinstalar", "iniciar", "detener", "reiniciar"):
         sub.add_parser(nombre)
+    e = sub.add_parser("estado")
+    e.add_argument("--breve", action="store_true", help="una sola palabra, para scripts")
+    si = sub.add_parser("silenciar", help="silencia o reactiva el micrófono")
+    si.add_argument("valor", nargs="?", choices=["si", "sí", "no"], help="sin valor: alterna")
     r = sub.add_parser("registro")
     r.add_argument("-f", dest="seguir", action="store_true", help="seguir el registro en vivo")
     sub.add_parser("dispositivos")
@@ -293,8 +334,10 @@ def main():
         "probar-voz": cmd_probar_voz, "probar-oido": cmd_probar_oido,
         "probar-cerebro": cmd_probar_cerebro, "calibrar": cmd_calibrar, "probar-turno": cmd_probar_turno,
     }
-    for nombre in ("configurar", "actualizar", "desinstalar", "iniciar", "detener", "reiniciar", "estado", "registro"):
+    for nombre in ("configurar", "actualizar", "desinstalar", "iniciar", "detener", "reiniciar", "registro"):
         comandos[nombre] = _servicio(nombre)
+    comandos["estado"] = cmd_estado
+    comandos["silenciar"] = cmd_silenciar
     comandos[args.cmd](args)
 
 

@@ -30,7 +30,7 @@ también descarga Whisper (unos 500 MB).
 
 - macOS 13 o superior, Mac con Apple Silicon.
 - Herramientas de línea de comandos de Xcode (`xcode-select --install`; el instalador lo
-  detecta).
+  detecta): se usan para compilar `Luci.app`.
 - Micrófono y parlantes (probado con una interfaz Focusrite Scarlett 2i2).
 - Una suscripción a [OpenCode Go](https://opencode.ai/docs/go) y su clave de API.
 
@@ -54,7 +54,7 @@ luci
 | `n` | Nueva conversación (olvida lo hablado) |
 | `t` | Cambiar de modelo |
 | `d` | Mostrar u ocultar detalles (qué ignoró y por qué, tiempos) |
-| `q` | Cerrar la interfaz (Luci sigue escuchando) |
+| `q` | Cerrar la interfaz (Luci sigue escuchando; para apagarla: `luci detener`) |
 
 ### Cuándo habla y cuándo no
 
@@ -65,10 +65,21 @@ luci
 - **«Gracias, Luci»**, «Luci, silencio» o «eso es todo» la devuelven a espera.
 - **Para interrumpirla**, háblale mientras responde.
 
+## Barra de menú
+
+Luci muestra una mariquita en la barra de menú de macOS mientras está activa: contorno en
+espera, rellena cuando te escucha o habla, micrófono tachado si está silenciada. Su menú
+permite silenciarla, hablarle sin decir su nombre, empezar una conversación nueva, abrir la
+interfaz o detenerla. Para ocultar el ícono: `icono_menu = false` en `[integraciones]`.
+
+¿Usas [SketchyBar](https://github.com/FelixKratz/SketchyBar)? Hay un ítem listo en
+[`integraciones/sketchybar`](integraciones/sketchybar/README.md).
+
 ## Cómo está organizada
 
 - **Servicio** (`~/Applications/Luci.app`, se inicia al iniciar sesión): tiene el permiso de
-  micrófono y hace todo el trabajo: escuchar, transcribir, pensar y hablar.
+  micrófono, muestra el ícono de la barra de menú y hace todo el trabajo: escuchar,
+  transcribir, pensar y hablar.
 - **Interfaz** (`luci`): aplicación de terminal que muestra el estado y la conversación.
   Funciona desde cualquier terminal (Ghostty, tmux, herdr, SSH…) porque no usa el micrófono:
   se conecta al servicio por un socket local.
@@ -79,6 +90,8 @@ luci
 luci estado               # ¿configurada? ¿corriendo?
 luci iniciar | detener | reiniciar
 luci registro [-f]        # registro del servicio
+luci silenciar [si|no]    # silencia o reactiva el micrófono (sin valor: alterna)
+luci estado --breve       # estado en una palabra, para scripts
 luci actualizar           # última versión desde GitHub
 luci configurar           # rehace la configuración (modelos, clave, Luci.app)
 luci desinstalar          # quita Luci.app y el inicio automático

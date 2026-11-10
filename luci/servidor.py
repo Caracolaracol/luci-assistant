@@ -12,13 +12,32 @@ from __future__ import annotations
 import collections
 import json
 import os
+import shutil
 import socket
+import subprocess
 import threading
 import time
 
 from .config import SOCKET, cargar_config
 from .estados import CARGANDO, CONVERSANDO, ERROR
 from .motor import Evento, Motor
+
+
+def _sketchybar() -> str | None:
+    for ruta in (shutil.which("sketchybar"), "/opt/homebrew/bin/sketchybar", "/usr/local/bin/sketchybar"):
+        if ruta and os.path.exists(ruta):
+            return ruta
+    return None
+
+
+def avisar_barra(estado: str, cfg: dict):
+    """Avisa a SketchyBar (si está instalado) del nuevo estado: evento `luci_estado`."""
+    if not cfg.get("integraciones", {}).get("sketchybar", True):
+        return
+    binario = _sketchybar()
+    if binario:
+        subprocess.Popen([binario, "--trigger", "luci_estado", f"ESTADO={estado}"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 class Servidor:
@@ -125,8 +144,13 @@ class Servidor:
             self._al_evento(Evento("error", f"El motor se detuvo: {self._fallo}"))
 
     def _latido(self):
+        anterior = None
         while self._activo:
-            self._difundir(self._estado())
+            estado = self._estado()
+            self._difundir(estado)
+            if estado["estado"] != anterior:
+                anterior = estado["estado"]
+                avisar_barra(anterior, self.cfg)
             time.sleep(0.1)
 
     def detener(self):
@@ -168,6 +192,7 @@ class Servidor:
             self._activo = False
             self.motor.detener()
             SOCKET.unlink(missing_ok=True)
+            avisar_barra("apagada", self.cfg)
             time.sleep(0.5)        # deja que el motor libere el audio
 
 

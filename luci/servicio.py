@@ -22,7 +22,7 @@ from .cliente import servicio_activo
 from .config import (APP, ARCHIVO_CLAVE, CONFIG, DATOS, ID_SERVICIO, PLIST, REGISTROS, SOCKET,
                      buscar_clave, guardar_clave, preparar_config)
 
-EJECUTABLE = "luci-servicio"
+EJECUTABLE = "Luci"
 REGISTRO = REGISTROS / "luci.log"
 DOMINIO = f"gui/{os.getuid()}"
 
@@ -84,9 +84,14 @@ def _crear_app(python: str):
         plistlib.dump(info, f)
     (contenido / "Resources/python").write_text(python + "\n")
 
-    fuente = Path(__file__).parent / "app/lanzador.c"
-    subprocess.run(["cc", "-O2", "-Wall", "-o", str(contenido / "MacOS" / EJECUTABLE), str(fuente)],
-                   check=True)
+    # Ícono en la barra de menú + lanzador del servicio (Swift, sin dependencias externas).
+    fuente = Path(__file__).parent / "app/Luci.swift"
+    if not shutil.which("swiftc"):
+        raise SystemExit("Falta el compilador de Swift: instala las herramientas de Xcode con "
+                         "«xcode-select --install» y vuelve a ejecutar «luci configurar».")
+    print("Compilando Luci.app…")
+    subprocess.run(["swiftc", "-O", "-target", "arm64-apple-macos13", "-framework", "Cocoa",
+                    "-o", str(contenido / "MacOS" / EJECUTABLE), str(fuente)], check=True)
     # Firma local (ad hoc): macOS asocia el permiso de micrófono a esta firma.
     subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", ID_SERVICIO, str(APP)],
                    check=True, capture_output=True)
@@ -171,8 +176,29 @@ def configurar():
         print(f"El servicio no respondió. Revisa el registro: luci registro  ({REGISTRO})")
 
 
+def _instalacion_editable() -> Path | None:
+    """Carpeta del código si Luci está instalada en modo desarrollo (--editable)."""
+    import importlib.metadata
+    import json
+
+    try:
+        texto = importlib.metadata.distribution("luci-assistant").read_text("direct_url.json") or "{}"
+        datos = json.loads(texto)
+    except (importlib.metadata.PackageNotFoundError, json.JSONDecodeError):
+        return None
+    if datos.get("dir_info", {}).get("editable") and datos.get("url", "").startswith("file://"):
+        return Path(datos["url"][len("file://"):])
+    return None
+
+
 def actualizar():
     """Instala la última versión desde GitHub y reinicia el servicio."""
+    carpeta = _instalacion_editable()
+    if carpeta:
+        # Modo desarrollo: no se reemplaza el código local por la copia de GitHub.
+        print(f"Luci está instalada en modo desarrollo desde {carpeta}.")
+        print("Actualiza con «git pull» en esa carpeta y luego «luci reiniciar».")
+        return
     resultado = subprocess.run(["uv", "tool", "install", "--force", REPOSITORIO], check=False)
     if resultado.returncode != 0:
         raise SystemExit("No pude actualizar Luci.")
