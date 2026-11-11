@@ -57,9 +57,11 @@ class Motor:
         self._emitir = emitir
         self.estado = CARGANDO
         self.fin_ventana = 0.0          # hora en que se cierra la ventana de conversación
-        self._ultima_respuesta = 0.0    # para olvidar la conversación tras un rato
+        self._ultima_actividad = 0.0    # última vez que le hablaron: para olvidar tras un rato
         self._activo = False
         self._ultimo_dicho = ""         # para reconocer el eco de su propia voz
+        self._stt_pendiente: str | None = None   # modelo de Whisper que reemplazará al actual
+        self.al_cambiar_herramientas: Callable[[], None] = lambda: None   # avisa a la ventana
 
     # ------------------------------------------------------------- utilidades
     def _ev(self, tipo: str, texto: str):
@@ -91,9 +93,20 @@ class Motor:
         self.oido.calentar()
         self._hilo_stt = ThreadPoolExecutor(max_workers=1)
         l = self.cfg["llm"]
+        from .mcp import Herramientas
+        from .modelos import guardar_seccion
+
+        self.herramientas = Herramientas(self.cfg.get("herramientas", {}))
+        self.herramientas.al_guardar = lambda nombre, cfg: guardar_seccion(f"herramientas.{nombre}", cfg)
+        def avisar(texto: str):
+            self._ev("debug", texto)
+            self.al_cambiar_herramientas()
+
+        self.herramientas.iniciar(avisar)
         self.cerebro = Cerebro(l["base_url"], clave_opencode_go(), l["modelo"], cargar_persona(),
                                l.get("max_tokens", 400), l.get("memoria_turnos", 10),
-                               l.get("razonamiento", "none"))
+                               l.get("razonamiento", "none"),
+                               respaldo=l.get("candidatos", []), herramientas=self.herramientas)
         self.cerebro.calentar()
 
     # --------------------------------------------------------------- control
@@ -123,6 +136,32 @@ class Motor:
         self.cerebro.modelo = modelo
         self._ev("info", f"Modelo: {modelo}")
 
+    def cambiar_stt(self, modelo: str):
+        """Cambia el modelo de Whisper entre frases (el bucle principal lo aplica)."""
+        self._stt_pendiente = modelo
+
+    def _aplicar_stt(self):
+        modelo, self._stt_pendiente = self._stt_pendiente, None
+        anterior, self.estado = self.estado, CARGANDO
+        nombre = modelo.split("/")[-1]
+        self._ev("info", f"Cargando Whisper ({nombre})…")
+        try:
+            nuevo = Oido(modelo, self.cfg["stt"]["idioma"], self.cfg["stt"].get("pista"))
+            # En el mismo hilo que las transcripciones: nunca se cruzan dos modelos.
+            self._hilo_stt.submit(nuevo.calentar).result()
+            self.oido = nuevo
+            self._ev("info", f"Transcripción: {nombre}")
+        except Exception as e:      # noqa: BLE001
+            self._ev("error", f"No pude cargar {nombre}: {e}. Sigo con el anterior.")
+        self.estado = anterior if anterior != CONVERSANDO else ESPERA
+        if self.mic.silenciado:
+            self.estado = SILENCIADO
+
+    def cambiar_voz(self, cfg_tts: dict):
+        """Carga la nueva voz y la reemplaza (la frase en curso termina con la anterior)."""
+        self.voz = crear_voz(cfg_tts, ruta_datos)
+        self._ev("info", "Voz cambiada.")
+
     def detener(self):
         self._activo = False
 
@@ -150,6 +189,8 @@ class Motor:
         v = self.cfg["vad"]
         try:
             while self._activo:
+                if self._stt_pendiente:
+                    self._aplicar_stt()
                 if self.mic.silenciado:
                     time.sleep(0.1)
                     continue
@@ -196,7 +237,7 @@ class Motor:
             time.sleep(1)
 
     def _debe_parar(self) -> bool:
-        return (not self._activo or self.mic.silenciado
+        return (not self._activo or self.mic.silenciado or self._stt_pendiente is not None
                 or (self.estado == CONVERSANDO and time.time() > self.fin_ventana))
 
     def _anticipar(self, audio: np.ndarray):
@@ -299,10 +340,11 @@ class Motor:
 
         # Tras un rato sin hablarle, empieza de cero (no arrastra contexto de horas atrás).
         olvido_s = self.cfg["llm"].get("olvidar_tras_min", 30) * 60
-        if self.cerebro.historial and time.time() - self._ultima_respuesta > olvido_s:
+        if self.cerebro.historial and time.time() - self._ultima_actividad > olvido_s:
             self.cerebro.olvidar()
             self._ev("debug", f"Memoria de la conversación borrada tras "
                               f"{self.cfg['llm'].get('olvidar_tras_min', 30)} min sin hablarme.")
+        self._ultima_actividad = time.time()
 
         def producir():
             fr = Fraseador()
@@ -321,7 +363,11 @@ class Motor:
                     resultado["dicho"].append(f)
                     self._ev("luci", f)
 
-            flujo = self.cerebro.responder(texto, cancelar)
+            def al_usar(nombre: str, argumentos: str):
+                servidor, _, herramienta = nombre.partition("__")
+                self._ev("info", f"Consultando {servidor.capitalize()} ({herramienta}) {argumentos[:120]}")
+
+            flujo = self.cerebro.responder(texto, cancelar, al_usar)
             try:
                 for delta in flujo:
                     tiempos.setdefault("token", time.time() - t_fin_habla)
@@ -379,6 +425,9 @@ class Motor:
                 voz_usuario.clear()
 
         self._ultimo_dicho = " ".join(resultado["dicho"])
+        if self.cerebro.fallos:
+            self._ev("info", f"Sin respuesta de {', '.join(self.cerebro.fallos)}; "
+                             f"{'respondí con ' + self.cerebro.usado if not errores else 'probé todos los modelos'}.")
         if errores:
             self._ev("error", f"Error del modelo: {type(errores[0]).__name__}: {str(errores[0])[:200]}")
             self._decir("Perdona, tengo problemas para conectarme con mi cerebro.")
@@ -401,6 +450,5 @@ class Motor:
             # no se extiende la ventana si no le hablaban
             self.estado = CONVERSANDO if time.time() < self.fin_ventana else ESPERA
         else:
-            self._ultima_respuesta = time.time()
             self._abrir_ventana()
         return None

@@ -1,4 +1,8 @@
-# Luci 🪲 — asistente de voz
+<p align="center">
+  <img src="luci/app/marca/luci-1024.png" width="112" alt="Ícono de Luci: una luciérnaga con el farol encendido">
+</p>
+
+# Luci — asistente de voz
 
 Luci es una asistente de voz en español para macOS. Escucha siempre, responde cuando la
 llamas por su nombre («Luci, …») y se queda callada cuando hablas con otras personas.
@@ -67,13 +71,80 @@ luci
 
 ## Barra de menú
 
-Luci muestra una mariquita en la barra de menú de macOS mientras está activa: contorno en
-espera, rellena cuando te escucha o habla, micrófono tachado si está silenciada. Su menú
-permite silenciarla, hablarle sin decir su nombre, empezar una conversación nueva, abrir la
-interfaz o detenerla. Para ocultar el ícono: `icono_menu = false` en `[integraciones]`.
+Luci muestra la cola de una luciérnaga en la barra de menú de macOS mientras está activa: el
+farol en contorno en espera, relleno cuando te escucha, piensa o habla, y un micrófono tachado
+si está silenciada. Para ocultar el ícono: `icono_menu = false` en `[integraciones]`.
+
+- **Clic**: abre la ventana de ajustes.
+- **Clic derecho**: menú rápido (silenciar, hablarle sin decir su nombre, nueva conversación,
+  abrir la interfaz, detenerla).
+
+### Ajustes
+
+La ventana muestra el estado de Luci, botones para silenciarla o empezar de nuevo, y permite
+elegir sin reiniciar:
+
+- **Transcripción**: el modelo de Whisper (MLX). Del más liviano (Small · 8 bits, ~300 MB)
+  al más preciso (Large v3 Turbo, ~1,6 GB).
+- **Voz**: voces de Piper en español (México, Argentina, España) o las voces de macOS. Con el
+  botón del parlante la escuchas antes de elegirla.
+- **Modelo de lenguaje**: cualquiera de los que ofrece OpenCode Go. Los marcados como
+  **Respaldo** se usan, en orden, si el modelo elegido está saturado o no responde.
+- **Ajustes del modelo**: nivel de razonamiento y clave de OpenCode Go.
+
+- **Herramientas**: activa o desactiva las herramientas que Luci puede consultar (ver abajo).
+
+Los modelos descargados que no estén en uso se pueden borrar con el botón de la papelera.
+
+Los modelos que faltan aparecen con su tamaño. Al elegir uno, Luci pide confirmación, lo
+descarga mostrando el avance y lo usa en cuanto termina. La elección se guarda en
+`config.toml`.
+
+Luci reutiliza los modelos que ya estén en tu Mac: Whisper MLX desde la caché de Hugging
+Face (`~/.cache/huggingface/hub`), compartida con otras herramientas, y las voces de Piper
+desde `~/Library/Application Support/Luci/models/piper`. Los modelos GGUF (whisper.cpp,
+Handy, Mantis) usan otro motor y no son compatibles.
 
 ¿Usas [SketchyBar](https://github.com/FelixKratz/SketchyBar)? Hay un ítem listo en
 [`integraciones/sketchybar`](integraciones/sketchybar/README.md).
+
+## Herramientas (MCP)
+
+Luci puede consultar servidores [MCP](https://modelcontextprotocol.io), los mismos que usan
+Claude Code, OpenCode o Pi. Viene con [Engram](https://github.com/Gentleman-Programming/engram),
+si está instalado: pregúntale «Luci, ¿qué decidimos sobre la paleta?» y busca en tus memorias
+antes de responder.
+
+Desde la ventana de ajustes, sección **Herramientas (MCP)** › **Agregar…**:
+
+- **Importar** los servidores que ya tengas configurados en Pi, Claude Code u OpenCode, con
+  sus claves.
+- **Agregar a mano** un servidor local (un comando, como `npx -y …`, con sus variables de
+  entorno) o remoto (una URL, con sus cabeceras).
+
+Ningún servidor necesita código propio en Luci. Al agregar uno, solo quedan permitidas las
+herramientas que el servidor declara de **solo lectura**: por voz no hay confirmación antes
+de actuar. Con las casillas de cada servidor eliges qué más puede usar, y en «Cuándo usarlo»
+le explicas al modelo para qué sirve. Si un servidor no responde (por ejemplo, Obsidian
+cerrado), Luci lo reintenta cada minuto.
+
+Todo queda en `config.toml`, que se puede editar a mano:
+
+```toml
+[herramientas.github]
+comando = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+env = { GITHUB_TOKEN = "…" }
+permitidas = ["search_issues", "get_issue"]
+descripcion = "Mis repositorios: úsalo cuando pregunte por issues o PRs."
+activo = true
+
+[herramientas.notas]
+url = "https://127.0.0.1:27124/mcp/"
+headers = { Authorization = "Bearer …" }
+```
+
+Lo que devuelve una herramienta se envía al modelo de lenguaje junto con tu pregunta.
 
 ## Cómo está organizada
 
@@ -153,8 +224,8 @@ luci consola                     # motor completo en la terminal, sin servicio
 ## Pendiente
 
 - Cancelación de eco real (hoy la interrupción se basa en el volumen).
-- Detección del fin de turno por entonación (Smart Turn) para responder antes.
-- Herramientas: consultar memorias de proyectos (Engram), notas, calendario…
+- Validar Smart Turn (fin de turno por entonación) con voces reales y activarlo por defecto.
+- Más herramientas: notas, calendario…
 - Fase de hardware: el escarabajo.
 
 ## Licencia

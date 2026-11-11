@@ -1,0 +1,353 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const repo = "https://github.com/caracolaracol/luci-assistant";
+const instalar =
+  "curl -fsSL https://raw.githubusercontent.com/caracolaracol/luci-assistant/main/instalar.sh | sh";
+
+const pasos = [
+  { t: "Micrófono", d: "Escucha siempre, en tu Mac." },
+  { t: "Detector de voz", d: "Silero separa la voz del ruido." },
+  { t: "Whisper local", d: "Transcribe en Apple Silicon con MLX." },
+  { t: "¿Me llamaron?", d: "Si no dijiste «Luci», nada sale del Mac.", clave: true },
+  { t: "Modelo de lenguaje", d: "Solo el texto de esa frase viaja a OpenCode Go." },
+  { t: "Voz local", d: "Piper o las voces de macOS responden." },
+];
+
+const rasgos = [
+  { t: "Responde a su nombre", d: "«Luci, …» y te atiende. Si hablas con otras personas, se queda callada." },
+  { t: "Conversa sin repetir su nombre", d: "Tras cada respuesta te deja unos segundos para seguir. Decide sola si la frase era para ella." },
+  { t: "Se deja interrumpir", d: "Háblale mientras responde y se detiene para escucharte." },
+  { t: "Tú eliges los modelos", d: "Whisper, voces de Piper o de macOS y cualquier modelo de OpenCode Go, con respaldo si uno se satura." },
+  { t: "Barra de menú y terminal", d: "Un farol en la barra de menú con ventana de ajustes, y una interfaz de terminal que funciona en cualquier lado." },
+  { t: "Software libre", d: "Código abierto bajo GPL-3.0. Sin cuentas, sin telemetría, sin guardar tus conversaciones." },
+];
+
+const dialogo = [
+  { yo: true, t: "Luci, ¿cuánto es un cuarto de taza en mililitros?" },
+  { yo: false, t: "Unos 60 mililitros." },
+  { yo: true, t: "¿Y media taza?" },
+  { yo: false, t: "Unos 120." },
+  { yo: true, t: "Gracias, Luci." },
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Luci · asistente de voz</title>
+    <meta name="description" content="Luci es una asistente de voz en español para macOS. Escucha en local y solo responde cuando la llamas por su nombre." />
+    <meta name="theme-color" content="#231914" />
+    <link rel="icon" type="image/svg+xml" href={`${base}luci.svg`} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="barra">
+      <a class="marca" href={base}>
+        <img src={`${base}luci.svg`} alt="" width="28" height="28" />
+        Luci
+      </a>
+      <nav>
+        <a href="#como">Cómo funciona</a>
+        <a href="#instalar">Instalar</a>
+        <a href={repo}>GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="portada">
+        <div class="luciernagas" aria-hidden="true">
+          {Array.from({ length: 14 }, (_, i) => (
+            <span style={`--i:${i};left:${5 + i * 6.6}%;top:${15 + ((i * 37) % 70)}%`}></span>
+          ))}
+        </div>
+        <img class="icono" src={`${base}luci.svg`} alt="Ícono de Luci: el farol encendido de una luciérnaga" width="168" height="168" />
+        <h1>Luci</h1>
+        <p class="lema">
+          Una asistente de voz en español que vive en tu Mac.<br />
+          Escucha en local y solo habla cuando la llamas.
+        </p>
+        <div class="comando" data-copiar={instalar}>
+          <code><span class="prompt">$</span> {instalar}</code>
+          <button type="button" aria-label="Copiar comando">Copiar</button>
+        </div>
+        <p class="nota">macOS 13 o superior · Apple Silicon · <a href={repo}>código en GitHub</a></p>
+      </section>
+
+      <section id="como" class="seccion">
+        <p class="sobre">Cómo funciona</p>
+        <h2>Tu voz no sale del Mac</h2>
+        <p class="intro">
+          Luci transcribe todo en local. Solo cuando dices su nombre, el texto de esa frase viaja al
+          modelo de lenguaje. El audio nunca se envía.
+        </p>
+        <ol class="flujo">
+          {pasos.map((p, i) => (
+            <li class={p.clave ? "clave" : ""}>
+              <span class="num">{i + 1}</span>
+              <strong>{p.t}</strong>
+              <span>{p.d}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section class="seccion dos">
+        <div>
+          <p class="sobre">Cuándo habla</p>
+          <h2>Como hablarle a alguien en la sala</h2>
+          <p class="intro">
+            La llamas por su nombre, conversan, y cuando le das las gracias vuelve a quedarse en
+            espera. Si conversas con otra persona, no se entromete.
+          </p>
+        </div>
+        <div class="dialogo" aria-label="Ejemplo de conversación">
+          {dialogo.map((m) => <p class={m.yo ? "yo" : "luci"}>{m.t}</p>)}
+        </div>
+      </section>
+
+      <section class="seccion">
+        <p class="sobre">Qué hace</p>
+        <h2>Simple, discreta y tuya</h2>
+        <div class="rasgos">
+          {rasgos.map((r) => (
+            <article>
+              <h3>{r.t}</h3>
+              <p>{r.d}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="instalar" class="seccion">
+        <p class="sobre">Instalar</p>
+        <h2>Un comando y listo</h2>
+        <div class="comando" data-copiar={instalar}>
+          <code><span class="prompt">$</span> {instalar}</code>
+          <button type="button" aria-label="Copiar comando">Copiar</button>
+        </div>
+        <div class="requisitos">
+          <div>
+            <h3>El instalador</h3>
+            <ul>
+              <li>Instala <code>uv</code> y el comando <code>luci</code>.</li>
+              <li>Descarga los modelos de voz y Whisper (unos 500 MB).</li>
+              <li>Te pide tu clave de OpenCode Go.</li>
+              <li>Deja Luci iniciándose al iniciar sesión.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Necesitas</h3>
+            <ul>
+              <li>macOS 13 o superior con Apple Silicon.</li>
+              <li>Herramientas de línea de comandos de Xcode.</li>
+              <li>Micrófono y parlantes.</li>
+              <li>Una suscripción a <a href="https://opencode.ai/docs/go">OpenCode Go</a>.</li>
+            </ul>
+          </div>
+        </div>
+        <p class="nota">Cuando macOS pregunte si «Luci» puede usar el micrófono, pulsa <strong>Permitir</strong>.</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Su nombre viene de la luciérnaga, el escarabajo que se comunica con luz. Luci es el cerebro
+        de un futuro asistente físico con forma de escarabajo steampunk.
+      </p>
+      <p class="pie">
+        <a href={repo}>GitHub</a> · <a href={`${repo}/blob/main/LICENSE`}>GPL-3.0</a>
+      </p>
+    </footer>
+
+    <script>
+      for (const caja of document.querySelectorAll<HTMLElement>("[data-copiar]")) {
+        const boton = caja.querySelector("button")!;
+        boton.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(caja.dataset.copiar!);
+            boton.textContent = "Copiado";
+          } catch {
+            boton.textContent = "Selecciona y copia";
+          }
+          setTimeout(() => (boton.textContent = "Copiar"), 1800);
+        });
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  /* Misma paleta que la ventana de Luci en macOS: siempre café. */
+  :root {
+    --laton: #d6cc6d;
+    --luz: #fbf7d8;
+    --caramelo: #a9784f;
+    --fondo: #231914;
+    --superficie: #3a2a20;
+    --borde: #4e3a2c;
+    --texto: #f4eedc;
+    --secundario: #c4ae94;
+    --acento-texto: #d6cc6d;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font: 400 17px/1.6 "Figtree", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--acento-texto); text-underline-offset: 3px; }
+  h1, h2, h3 { font-family: "Fraunces", Georgia, serif; font-weight: 600; line-height: 1.15; margin: 0; }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.88em; }
+</style>
+
+<style>
+  .barra {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px max(16px, calc((100% - 1040px) / 2));
+    background: color-mix(in srgb, var(--fondo) 85%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid color-mix(in srgb, var(--borde) 60%, transparent);
+  }
+  .marca {
+    display: flex; align-items: center; gap: 8px;
+    font: 600 20px "Fraunces", serif; color: var(--texto); text-decoration: none;
+  }
+  .barra nav { display: flex; gap: 22px; font-size: 15px; }
+  .barra nav a { color: var(--secundario); text-decoration: none; }
+  .barra nav a:hover { color: var(--texto); }
+
+  main { padding: 0 16px; }
+  .seccion, .portada { max-width: 1040px; margin: 0 auto; }
+
+  /* Portada */
+  .portada {
+    position: relative; text-align: center;
+    padding: 88px 0 96px;
+  }
+  .icono {
+    width: 168px; height: 168px;
+    filter: drop-shadow(0 0 36px color-mix(in srgb, var(--laton) 45%, transparent));
+    animation: latido 4.5s ease-in-out infinite;
+  }
+  @keyframes latido {
+    50% { filter: drop-shadow(0 0 60px color-mix(in srgb, var(--laton) 70%, transparent)); }
+  }
+  h1 { font-size: clamp(56px, 10vw, 88px); margin: 12px 0 8px; letter-spacing: -0.02em; }
+  .lema { font-size: clamp(18px, 2.4vw, 22px); color: var(--secundario); margin: 0 auto 36px; max-width: 34em; }
+  .nota { color: var(--secundario); font-size: 14px; margin-top: 16px; }
+
+  .luciernagas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .luciernagas span {
+    position: absolute;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--luz);
+    box-shadow: 0 0 10px 3px color-mix(in srgb, var(--laton) 70%, transparent);
+    opacity: 0;
+    animation: brillo 6s ease-in-out infinite, vuelo 14s ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -0.83s), calc(var(--i) * -1.7s);
+  }
+  @keyframes brillo { 30%, 55% { opacity: 0.9; } }
+  @keyframes vuelo { to { translate: 24px -40px; } }
+
+  /* Comando de instalación */
+  .comando {
+    display: flex; align-items: center; gap: 12px;
+    max-width: 760px; margin: 0 auto;
+    padding: 10px 10px 10px 18px;
+    background: #1a120e; color: #f4eedc;
+    border: 1px solid #4e3a2c; border-radius: 12px;
+    text-align: left;
+  }
+  .comando code { flex: 1; overflow-x: auto; white-space: nowrap; padding: 4px 0; scrollbar-width: thin; }
+  .prompt { color: var(--laton); user-select: none; margin-right: 6px; }
+  .comando button {
+    flex: none; cursor: pointer;
+    font: 600 14px "Figtree", sans-serif;
+    padding: 8px 14px; border: 0; border-radius: 8px;
+    background: var(--laton); color: #231914;
+  }
+  .comando button:hover { background: #e3da84; }
+
+  /* Secciones */
+  .seccion { padding: 72px 0; border-top: 1px solid var(--borde); }
+  .sobre {
+    margin: 0 0 8px; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--caramelo);
+  }
+  h2 { font-size: clamp(30px, 4.5vw, 42px); margin-bottom: 14px; }
+  .intro { color: var(--secundario); max-width: 38em; margin: 0 0 36px; }
+
+  .flujo {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;
+  }
+  .flujo li {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 18px; border-radius: 14px;
+    background: var(--superficie); border: 1px solid var(--borde);
+    font-size: 15px; color: var(--secundario);
+  }
+  .flujo strong { color: var(--texto); font-size: 16px; }
+  .flujo .num {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600;
+    background: var(--borde); color: var(--texto); margin-bottom: 6px;
+  }
+  .flujo .clave { border-color: var(--laton); box-shadow: 0 0 0 1px var(--laton) inset; }
+  .flujo .clave .num { background: var(--laton); color: #231914; }
+
+  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .dos .intro { margin-bottom: 0; }
+  .dialogo { display: flex; flex-direction: column; gap: 10px; }
+  .dialogo p { margin: 0; padding: 10px 16px; border-radius: 18px; max-width: 80%; }
+  .dialogo .yo { align-self: flex-end; background: var(--superficie); border: 1px solid var(--borde); border-bottom-right-radius: 6px; }
+  .dialogo .luci { align-self: flex-start; background: var(--laton); color: #231914; border-bottom-left-radius: 6px; }
+
+  .rasgos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 28px; }
+  .rasgos article {
+    padding: 24px; border-radius: 16px;
+    background: var(--superficie); border: 1px solid var(--borde);
+  }
+  .rasgos h3 { font-size: 20px; margin-bottom: 8px; }
+  .rasgos p { margin: 0; color: var(--secundario); font-size: 16px; }
+
+  #instalar .comando { margin: 0 0 32px; }
+  .requisitos { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .requisitos h3 { font-size: 20px; margin-bottom: 8px; }
+  .requisitos ul { margin: 0; padding-left: 20px; color: var(--secundario); }
+  .requisitos li { margin: 4px 0; }
+  #instalar .nota { margin-top: 28px; font-size: 15px; }
+
+  footer {
+    max-width: 1072px; margin: 0 auto; padding: 40px 16px 56px;
+    color: var(--secundario); font-size: 15px;
+  }
+  footer::before { content: ""; display: block; border-top: 1px solid var(--borde); margin-bottom: 40px; }
+  footer { padding-top: 0; }
+  footer p { max-width: 40em; margin: 0 0 10px; }
+
+  @media (max-width: 720px) {
+    .barra nav a:not(:last-child) { display: none; }
+    .portada { padding: 56px 0 64px; }
+    .dos, .requisitos { grid-template-columns: 1fr; gap: 28px; }
+    .seccion { padding: 56px 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .icono, .luciernagas span { animation: none; }
+    .luciernagas { display: none; }
+  }
+</style>

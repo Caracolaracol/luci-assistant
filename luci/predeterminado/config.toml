@@ -94,3 +94,19 @@ conversaciones = false
 sketchybar = true
 # Ícono de Luci en la barra de menú de macOS.
 icono_menu = true
+
+# Herramientas que Luci puede usar al responder: servidores MCP (los mismos que usan
+# Claude Code, OpenCode o Pi). Se agregan desde la ventana de ajustes o aquí, cada uno en
+# su sección [herramientas.<nombre>]:
+#   comando, args, env   servidor local: cómo iniciarlo
+#   url, headers         servidor remoto (HTTP)
+#   permitidas           herramientas que se ofrecen al modelo (sin esta opción: todas)
+#   descripcion          cuándo usarlo; se le explica al modelo
+#   activo               se puede cambiar desde la ventana de ajustes
+# Lo que devuelven las herramientas se envía al modelo de lenguaje junto con tu pregunta.
+[herramientas.engram]
+comando = "engram"
+args = ["mcp"]
+permitidas = ["mem_search", "mem_context", "mem_get_observation", "mem_list_projects"]
+descripcion = "Engram: la memoria de los proyectos del usuario (decisiones, problemas resueltos, avances, configuración). Úsala cuando pregunte por su trabajo, sus proyectos o lo que hizo antes. Busca en todos los proyectos (all_projects: true) salvo que nombre uno; mem_list_projects muestra los nombres de los proyectos."
+activo = true

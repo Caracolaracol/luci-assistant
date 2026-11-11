@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <title>Luci · farol de luciérnaga</title>
+  <defs>
+    <radialGradient id="luz" cx="32" cy="32" r="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6EFAA"/>
+      <stop offset=".35" stop-color="#D6CC6D" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#D6CC6D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Grilla de íconos de macOS: el cuadrado ocupa 824 de 1024 px, centrado. -->
+  <g transform="translate(6.25 6.25) scale(0.8047)">
+    <rect width="64" height="64" rx="14" fill="#231914"/>
+    <circle cx="32" cy="32" r="27" fill="url(#luz)"/>
+    <g transform="translate(2.2 2.6) rotate(-35 32 32) translate(32 32) scale(1.45) translate(-32 -42.25)">
+      <circle cx="32" cy="26.52" r="2.76" fill="#A9784F"/>
+      <path fill="#D6CC6D" d="M24 31H40Q43.5 31 43.8 34.5Q44.5 45 36.5 50.5Q32 53.5 27.5 50.5Q19.5 45 20.2 34.5Q20.5 31 24 31Z"/>
+      <ellipse cx="32" cy="40" rx="4.6" ry="6.2" fill="#FBF7D8"/>
+    </g>
+  </g>
+</svg>

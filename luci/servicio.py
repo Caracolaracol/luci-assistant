@@ -72,9 +72,10 @@ def _crear_app(python: str):
         "CFBundleDisplayName": "Luci",
         "CFBundleExecutable": EJECUTABLE,
         "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": "0.1",
+        "CFBundleShortVersionString": "0.2",
         "CFBundleVersion": "1",
         "LSMinimumSystemVersion": "13.0",
+        "CFBundleIconFile": "Luci",
         "LSUIElement": True,      # sin icono en el Dock
         "NSMicrophoneUsageDescription":
             "Luci escucha el micrófono para conversar contigo por voz. "
@@ -83,6 +84,9 @@ def _crear_app(python: str):
     with open(contenido / "Info.plist", "wb") as f:
         plistlib.dump(info, f)
     (contenido / "Resources/python").write_text(python + "\n")
+    # Ícono de la app y plantillas de la barra de menú (fuentes en luci/app/marca/).
+    for nombre in ("Luci.icns", "menu.png", "menu-luz.png"):
+        shutil.copy(Path(__file__).parent / "app" / nombre, contenido / "Resources" / nombre)
 
     # Ícono en la barra de menú + lanzador del servicio (Swift, sin dependencias externas).
     fuente = Path(__file__).parent / "app/Luci.swift"
@@ -90,7 +94,7 @@ def _crear_app(python: str):
         raise SystemExit("Falta el compilador de Swift: instala las herramientas de Xcode con "
                          "«xcode-select --install» y vuelve a ejecutar «luci configurar».")
     print("Compilando Luci.app…")
-    subprocess.run(["swiftc", "-O", "-target", "arm64-apple-macos13", "-framework", "Cocoa",
+    subprocess.run(["swiftc", "-O", "-target", "arm64-apple-macos13", "-framework", "Cocoa", "-framework", "SwiftUI",
                     "-o", str(contenido / "MacOS" / EJECUTABLE), str(fuente)], check=True)
     # Firma local (ad hoc): macOS asocia el permiso de micrófono a esta firma.
     subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", ID_SERVICIO, str(APP)],

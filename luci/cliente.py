@@ -33,12 +33,12 @@ class Cliente:
             if self._socket:
                 self._socket.close()
 
-    def enviar(self, cmd: str) -> bool:
+    def enviar(self, cmd: str, **extra) -> bool:
         with self._lock:
             if not self._socket:
                 return False
             try:
-                self._socket.sendall((json.dumps({"cmd": cmd}) + "\n").encode())
+                self._socket.sendall((json.dumps({"cmd": cmd, **extra}) + "\n").encode())
                 return True
             except OSError:
                 return False
