@@ -72,7 +72,7 @@ def _crear_app(python: str):
         "CFBundleDisplayName": "Luci",
         "CFBundleExecutable": EJECUTABLE,
         "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": "0.2",
+        "CFBundleShortVersionString": "0.2.1",
         "CFBundleVersion": "1",
         "LSMinimumSystemVersion": "13.0",
         "CFBundleIconFile": "Luci",

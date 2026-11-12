@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import re
 import threading
 import uuid
 from collections.abc import Callable, Iterator
@@ -36,10 +37,16 @@ Herramientas:
 - Tienes herramientas para consultar información del usuario:
 {lista}
 - Úsalas solo cuando la pregunta lo necesite. Antes de usarlas di una frase muy breve, como «Déjame revisar.», para que el usuario sepa que estás buscando.
-- Responde con lo esencial de lo que encuentres, en pocas frases y en lenguaje hablado: sin listas, sin rutas de archivos ni identificadores. Si no encuentras nada, dilo.
+- Lo que devuelven son notas técnicas escritas por asistentes de programación: tienen rutas, nombres de archivos y variables, identificadores, comandos, commits y jerga. NUNCA leas eso en voz alta. Entiende la nota y cuenta lo que significa en lenguaje cotidiano, como se lo contarías a un amigo.
+- Responde la pregunta en dos o tres frases, con lo esencial. Sin listas, sin códigos ni números de referencia, sin nombres técnicos, salvo que el usuario los pida. Si quiere más detalle, te lo pedirá.
+- Si no encuentras nada útil, dilo en una frase.
 """.strip()
 
 MAX_RONDAS = 3      # consultas a herramientas por respuesta, como máximo
+
+# Formato interno con que algunos modelos escriben una llamada a herramienta como texto
+# (DeepSeek: <｜DSML｜…>, otros: <tool_call>, <|tool…|>). Nunca se dice en voz alta.
+_FORMATO_INTERNO = re.compile(r"<[｜|]|DSML|<tool_call|<function[=_]")
 
 
 def listar_modelos(base_url: str, clave: str) -> list[str]:
@@ -123,18 +130,32 @@ class Cerebro:
         self.historial.append({"role": "user", "content": texto})
         mensajes = [{"role": "system", "content": self._sistema()}] + self.historial[-2 * self.memoria_turnos:]
         esquemas = self.herramientas.esquemas() if self.herramientas else []
+        resultados: list[str] = []      # lo que devolvieron las herramientas, para la ronda final
         dicho = ""
         try:
             for ronda in range(MAX_RONDAS + 1):
-                extra = {}
-                if esquemas:
-                    # En la última ronda ya no puede pedir más: debe responder.
-                    extra = {"tools": esquemas, "tool_choice": "auto" if ronda < MAX_RONDAS else "none"}
-                flujo, trozos = self._abrir_con_herramientas(mensajes, extra)
-                if not extra:
-                    esquemas = []      # el modelo no acepta herramientas
+                final = not esquemas or ronda == MAX_RONDAS
+                if final and resultados:
+                    # Respuesta final sin herramientas: los resultados van como texto. Si se
+                    # le prohibiera usarlas con tool_choice, algunos modelos (DeepSeek)
+                    # escriben la llamada como texto con su formato interno.
+                    pedido = mensajes[:1 + len(self.historial[-2 * self.memoria_turnos:])] + [{
+                        "role": "system",
+                        "content": "Ya consultaste las herramientas; no puedes consultar más. Lo que "
+                                   "encontraste:\n\n" + "\n\n".join(resultados)[:12000] +
+                                   "\n\nResponde ahora la última pregunta del usuario en lenguaje "
+                                   "hablado, siguiendo las reglas.",
+                    }]
+                    flujo, trozos = self._abrir_flujo(pedido)
+                elif final:
+                    flujo, trozos = self._abrir_flujo(mensajes)
+                else:
+                    extra = {"tools": esquemas, "tool_choice": "auto"}
+                    flujo, trozos = self._abrir_con_herramientas(mensajes, extra)
+                    if not extra:
+                        esquemas = []      # el modelo no acepta herramientas
                 llamadas: dict[int, dict] = {}
-                texto_ronda = ""
+                texto_ronda, retenido, formato_interno = "", "", False
                 try:
                     for trozo in trozos:
                         if cancelar.is_set():
@@ -143,9 +164,16 @@ class Cerebro:
                             continue
                         d = trozo.choices[0].delta
                         if d.content:
-                            texto_ronda += d.content
-                            dicho += d.content
-                            yield d.content
+                            retenido += d.content
+                            if _FORMATO_INTERNO.search(retenido):
+                                formato_interno = True      # llamada escrita como texto: no se dice
+                                break
+                            if retenido.endswith("<"):
+                                continue                    # puede ser el inicio de ese formato
+                            texto_ronda += retenido
+                            dicho += retenido
+                            yield retenido
+                            retenido = ""
                         for tc in d.tool_calls or []:
                             c = llamadas.setdefault(tc.index or 0, {"id": "", "nombre": "", "args": ""})
                             c["id"] = tc.id or c["id"]
@@ -154,8 +182,14 @@ class Cerebro:
                                 c["args"] += tc.function.arguments or ""
                 finally:
                     flujo.close()
-                if cancelar.is_set() or not llamadas:
+                if retenido and not formato_interno and not cancelar.is_set():
+                    dicho += retenido
+                    yield retenido
+                if cancelar.is_set() or final or (not llamadas and not formato_interno):
                     break
+                if formato_interno and not llamadas:
+                    esquemas = []          # la siguiente ronda es la final, sin herramientas
+                    continue
                 pedidas = [{"id": c["id"] or f"llamada_{ronda}_{i}", "type": "function",
                             "function": {"name": c["nombre"], "arguments": c["args"] or "{}"}}
                            for i, c in sorted(llamadas.items())]
@@ -165,6 +199,7 @@ class Cerebro:
                         al_usar(p["function"]["name"], p["function"]["arguments"])
                     resultado = self.herramientas.llamar(p["function"]["name"], p["function"]["arguments"])
                     mensajes.append({"role": "tool", "tool_call_id": p["id"], "content": resultado or "(vacío)"})
+                    resultados.append(resultado or "(vacío)")
                 if cancelar.is_set():
                     break
                 if dicho and not dicho.endswith((" ", "\n")):

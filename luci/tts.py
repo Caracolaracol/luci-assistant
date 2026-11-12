@@ -49,10 +49,17 @@ _FIN_FRASE = re.compile(r"[.!?;:…]+[\"'»)\]]*\s+")
 
 
 def limpiar_para_voz(texto: str) -> str:
-    """Quita markdown y símbolos que no se deben pronunciar."""
+    """Quita markdown, código, rutas y direcciones web: no se deben pronunciar."""
+    texto = re.sub(r"```.*?(```|$)", " ", texto, flags=re.S)          # bloques de código
+    texto = re.sub(r"`[^`\n]*`", " ", texto)                          # código en línea
+    texto = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", texto)              # enlaces markdown
+    texto = re.sub(r"(https?://|www\.)\S*[\w/]", " ", texto)            # direcciones web
+    texto = re.sub(r"(?<![\w.])(~|\.{1,2})?(/[\w.@-]*[\w@-]){2,}/?", " ", texto)   # rutas de archivo
     texto = re.sub(r"[*_#`>|~]+", "", texto)
     texto = re.sub(r"^\s*[-•]\s+", "", texto, flags=re.M)
-    return re.sub(r"\s+", " ", texto).strip()
+    texto = re.sub(r"\s+", " ", texto)
+    texto = re.sub(r"\s+([,.;:!?])", r"\1", texto)
+    return re.sub(r"([,;:])(?=[,.;:!?])", "", texto).strip()
 
 
 class Fraseador:

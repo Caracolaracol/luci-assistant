@@ -365,7 +365,11 @@ class Motor:
 
             def al_usar(nombre: str, argumentos: str):
                 servidor, _, herramienta = nombre.partition("__")
-                self._ev("info", f"Consultando {servidor.capitalize()} ({herramienta}) {argumentos[:120]}")
+                # Lo que busca revela de qué se habla: solo se muestra si se guardan las
+                # conversaciones (el registro en disco es de eventos, no de contenido).
+                detalle = (f" {argumentos[:120]}" if self.cfg.get("registro", {}).get("conversaciones")
+                           else "")
+                self._ev("info", f"Consultando {servidor.capitalize()} ({herramienta}){detalle}")
 
             flujo = self.cerebro.responder(texto, cancelar, al_usar)
             try:
